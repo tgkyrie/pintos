@@ -100,6 +100,7 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /**< Detects stack overflow. */
+    int64_t blocked_ticks;
   };
 
 /** If false (default), use round-robin scheduler.
@@ -118,6 +119,7 @@ tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
+void thread_check_block(struct thread *);
 
 struct thread *thread_current (void);
 tid_t thread_tid (void);
@@ -137,5 +139,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+bool thread_pri_bge(const struct list_elem*,const struct list_elem*,void *);
 
 #endif /**< threads/thread.h */

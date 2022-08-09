@@ -182,6 +182,7 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+  t->blocked_ticks=0;
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -237,9 +238,20 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  // list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list,&t->elem,thread_pri_bge,NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
+}
+
+/** decrease blocked thread->blocked_ticks and unblock t if t->blocked_ticks<=0 */ 
+void
+thread_check_blocked(struct thread *t){
+  if(t->status==THREAD_BLOCKED){
+    if(t->blocked_ticks>0)t->blocked_ticks--;
+    
+    if(t->blocked_ticks==0)thread_unblock(t);
+  }
 }
 
 /** Returns the name of the running thread. */
@@ -308,7 +320,8 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    // list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered(&ready_list,&cur->elem,thread_pri_bge,NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -320,7 +333,7 @@ void
 thread_foreach (thread_action_func *func, void *aux)
 {
   struct list_elem *e;
-
+  
   ASSERT (intr_get_level () == INTR_OFF);
 
   for (e = list_begin (&all_list); e != list_end (&all_list);
@@ -330,6 +343,7 @@ thread_foreach (thread_action_func *func, void *aux)
       func (t, aux);
     }
 }
+
 
 /** Sets the current thread's priority to NEW_PRIORITY. */
 void
@@ -582,3 +596,11 @@ allocate_tid (void)
 /** Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+/** Return true if a >= b*/
+bool thread_pri_bge(const struct list_elem *a,const struct list_elem *b,void *aux){
+  struct thread* t_a=list_entry(a,struct thread,elem);
+  struct thread* t_b=list_entry(b,struct thread,elem);
+  if(t_a->priority>=t_b->priority)return true;
+  else return false;
+}
